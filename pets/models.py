@@ -1,6 +1,4 @@
 from django.db import models
-from groups.models import Group
-from traits.models import Trait
 
 # Create your models here.
 
@@ -18,5 +16,7 @@ class Pet(models.Model):
     sex = models.CharField(
         max_length=20, choices=SexPet.choices, default=SexPet.NOT_INFORMED
     )
-    group = models.ForeignKey(Group, on_delete=models.PROTECT, related_name="pets")
-    traits = models.ManyToManyField(Trait, related_name="pets")
+    group = models.ForeignKey(
+        "groups.Group", on_delete=models.PROTECT, related_name="pets"
+    )
+    traits = models.ManyToManyField("traits.Trait", related_name="pets")
