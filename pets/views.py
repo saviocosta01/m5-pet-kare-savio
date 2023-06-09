@@ -2,9 +2,9 @@ from rest_framework.views import APIView, Response, Request, status
 from .models import Pet
 from groups.models import Group
 from traits.models import Trait
-from traits.serializers import TraitSerializer
-from .serializers import PetSerializer
+from .serializers import PetSerializer, UpdatePetSerializer
 from rest_framework.pagination import PageNumberPagination
+from django.shortcuts import get_object_or_404
 
 # Create your views here.
 
@@ -45,9 +45,65 @@ class PetView(APIView, PageNumberPagination):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def get(self, request: Request):
+        trait_value = request.query_params.get("trait", None)
         pets = Pet.objects.all()
+
+        if trait_value:
+            pets = Pet.objects.filter(traits__name__iexact=trait_value)
 
         page = self.paginate_queryset(pets, request)
 
         serializer = PetSerializer(instance=page, many=True)
         return self.get_paginated_response(serializer.data)
+
+
+class PetDetailsViwes(APIView):
+    def get(self, request: Request, pet_id: int):
+        pet = get_object_or_404(Pet, id=pet_id)
+        serializer = PetSerializer(instance=pet)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request: Request, pet_id: int):
+        serializer = UpdatePetSerializer(data=request.data)
+        pet = get_object_or_404(Pet, id=pet_id)
+
+        serializer.is_valid(raise_exception=True)
+
+        group_data = serializer.validated_data.pop("group", None)
+        traits_data = serializer.validated_data.pop("traits", None)
+
+        if group_data:
+            try:
+                group_obj = Group.objects.get(
+                    scientific_name__iexact=group_data["scientific_name"]
+                )
+
+            except Group.DoesNotExist:
+                group_obj = Group.objects.create(**group_data)
+            pet.group = group_obj
+
+        if traits_data:
+            traits_instancias = []
+            for trait in traits_data:
+                traits_obj = Trait.objects.get(name__iexact=trait["name"])
+                if not traits_obj:
+                    traits_obj = Trait.objects.create(**trait)
+
+                traits_instancias.append(traits_obj)
+
+            pet.traits.set(traits_instancias)
+
+        for key, value in serializer.validated_data.items():
+            setattr(pet, key, value)
+
+        pet.save()
+
+        serializer = UpdatePetSerializer(instance=pet)
+        return Response(data=serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request: Request, pet_id: int):
+        pet = get_object_or_404(Pet, id=pet_id)
+        pet.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
