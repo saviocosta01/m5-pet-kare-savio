@@ -2,7 +2,7 @@ from rest_framework.views import APIView, Response, Request, status
 from .models import Pet
 from groups.models import Group
 from traits.models import Trait
-from .serializers import PetSerializer, UpdatePetSerializer
+from .serializers import PetSerializer
 from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
 
@@ -65,8 +65,8 @@ class PetDetailsViwes(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def patch(self, request: Request, pet_id: int):
-        serializer = UpdatePetSerializer(data=request.data)
         pet = get_object_or_404(Pet, id=pet_id)
+        serializer = PetSerializer(data=request.data, partial=True)
 
         serializer.is_valid(raise_exception=True)
 
@@ -86,7 +86,7 @@ class PetDetailsViwes(APIView):
         if traits_data:
             traits_instancias = []
             for trait in traits_data:
-                traits_obj = Trait.objects.get(name__iexact=trait["name"])
+                traits_obj = Trait.objects.filter(name__iexact=trait["name"]).first()
                 if not traits_obj:
                     traits_obj = Trait.objects.create(**trait)
 
@@ -99,7 +99,7 @@ class PetDetailsViwes(APIView):
 
         pet.save()
 
-        serializer = UpdatePetSerializer(instance=pet)
+        serializer = PetSerializer(instance=pet)
         return Response(data=serializer.data, status=status.HTTP_200_OK)
 
     def delete(self, request: Request, pet_id: int):
